@@ -48,6 +48,8 @@ namespace serving {
 // destructor. (See documentation on TargetBase::Detach() in target.h.) Doing so
 // ensures that no virtual method calls are in flight during destruction of
 // member variables.
+// 其实就是由Source对象路由到各个SourceAdapter对象。在serving的视线中，每个platform创建
+// 一个SourceAdapter对象。
 template <typename T>
 class SourceRouter : public TargetBase<T> {
  public:

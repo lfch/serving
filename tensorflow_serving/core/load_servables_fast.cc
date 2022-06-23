@@ -40,6 +40,7 @@ std::function<void(const uint32)> SetManagerNumLoadThreadsNotifier(
   return manager->set_num_load_threads_observer_->Notifier();
 }
 
+// 首次load时用比较多的线程，可以加速服务启动
 Status ConnectSourcesWithFastInitialLoad(
     AspiredVersionsManager* manager,
     std::vector<Source<std::unique_ptr<Loader>>*> sources,
@@ -50,7 +51,7 @@ Status ConnectSourcesWithFastInitialLoad(
       SetManagerNumLoadThreadsNotifier(manager);
   set_manager_num_load_threads(num_threads);
   for (Source<std::unique_ptr<Loader>>* source : sources) {
-    ConnectSourceToTarget(source, manager);
+    ConnectSourceToTarget(source, manager);  // 这里trigger的servable的load??
   }
   const Status status = wait_until_loaded_fn();
   set_manager_num_load_threads(prev_num_load_threads);
@@ -71,50 +72,49 @@ Status ConnectSourceWithFastInitialLoad(
 
 Status ConnectSourcesWithFastInitialLoad(
     AspiredVersionsManager* manager,
-    std::vector<Source<std::unique_ptr<Loader>>*> sources,
+    std::vector<Source<std::unique_ptr<Loader>>*> sources, // sources实际上是SourceAdapters
     ServableStateMonitor* servable_state_monitor,
     const std::vector<ServableRequest>& initial_servables,
     const uint32 num_threads) {
-  return internal::ConnectSourcesWithFastInitialLoad(
-      manager, sources,
-      [&]() {
-        std::map<ServableId, ServableState::ManagerState> states_reached;
-        const bool all_servables_available =
-            servable_state_monitor->WaitUntilServablesReachState(
-                initial_servables, ServableState::ManagerState::kAvailable,
-                &states_reached);
-        if (!all_servables_available) {
-          const int num_unavailable_servables = std::count_if(
-              states_reached.begin(), states_reached.end(),
-              [](const std::pair<ServableId, ServableState::ManagerState>&
-                     id_and_state) {
-                return id_and_state.second !=
-                       ServableState::ManagerState::kAvailable;
-              });
-          string message =
-              strings::StrCat(num_unavailable_servables,
-                              " servable(s) did not become available: {");
-          for (const auto& id_and_state : states_reached) {
-            if (id_and_state.second !=
-                ServableState::ManagerState::kAvailable) {
-              absl::optional<ServableState> maybe_state =
-                  servable_state_monitor->GetState(id_and_state.first);
-              const string error_msg =
-                  maybe_state && !maybe_state.value().health.ok()
-                      ? " due to error: " +
-                            maybe_state.value().health.ToString()
-                      : "";
-              strings::StrAppend(&message, "{",
-                                 id_and_state.first.DebugString(), error_msg,
-                                 "}, ");
-            }
-          }
-          strings::StrAppend(&message, "}");
-          return errors::Unknown(message);
+  auto wait_until_loaded_fn = [&]() { // 这个lambda用来判断是否所有的servables都加载完成了。
+    std::map<ServableId, ServableState::ManagerState> states_reached;
+    const bool all_servables_available =
+        servable_state_monitor->WaitUntilServablesReachState(
+            initial_servables, ServableState::ManagerState::kAvailable,
+            &states_reached);
+    if (!all_servables_available) {
+      const int num_unavailable_servables = std::count_if(
+          states_reached.begin(), states_reached.end(),
+          [](const std::pair<ServableId, ServableState::ManagerState>&
+                 id_and_state) {
+            return id_and_state.second !=
+                   ServableState::ManagerState::kAvailable;
+          });
+      string message =
+          strings::StrCat(num_unavailable_servables,
+                          " servable(s) did not become available: {");
+      for (const auto& id_and_state : states_reached) {
+        if (id_and_state.second !=
+            ServableState::ManagerState::kAvailable) {
+          absl::optional<ServableState> maybe_state =
+              servable_state_monitor->GetState(id_and_state.first);
+          const string error_msg =
+              maybe_state && !maybe_state.value().health.ok()
+                  ? " due to error: " +
+                        maybe_state.value().health.ToString()
+                  : "";
+          strings::StrAppend(&message, "{",
+                             id_and_state.first.DebugString(), error_msg,
+                             "}, ");
         }
-        return Status::OK();
-      },
-      num_threads);
+      }
+      strings::StrAppend(&message, "}");
+      return errors::Unknown(message);
+    }
+    return Status::OK();
+  };
+  return internal::ConnectSourcesWithFastInitialLoad(
+      manager, sources, wait_until_loaded_fn, num_threads);
 }
 
 }  // namespace serving

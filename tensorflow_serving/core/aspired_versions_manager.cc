@@ -230,6 +230,8 @@ AspiredVersionsManager::GetAspiredVersionsCallback() {
   return target_impl_->GetAspiredVersionsCallback();
 }
 
+// EnqueueAspiredVersionRequest最终被Source调用，用来将一个servable
+// 的所有version存储到pending_requests中。
 void AspiredVersionsManager::EnqueueAspiredVersionsRequest(
     const StringPiece servable_name,
     std::vector<ServableData<std::unique_ptr<Loader>>> versions) {
@@ -250,6 +252,9 @@ void AspiredVersionsManager::EnqueueAspiredVersionsRequest(
   }
 }
 
+// 从请求参数versions中获取到next aspired version set, 从Manager中获取到
+// current aspired version set，然后取两者差集，然后调用ManageServableWithAdditionalState函数
+// 开启加载的过程
 void AspiredVersionsManager::ProcessAspiredVersionsRequest(
     const StringPiece servable_name,
     std::vector<ServableData<std::unique_ptr<Loader>>> versions) {
@@ -354,8 +359,7 @@ bool AspiredVersionsManager::ContainsAnyReaspiredVersions(
 absl::optional<AspiredVersionPolicy::ServableAction>
 AspiredVersionsManager::GetNextAction() {
   std::vector<absl::optional<AspiredVersionPolicy::ServableAction>> actions;
-  for (const string& servable_name :
-       basic_manager_->GetManagedServableNames()) {
+  for (const string& servable_name : basic_manager_->GetManagedServableNames()) {
     std::vector<AspiredServableStateSnapshot> aspired_state_snapshots;
     for (const ServableStateSnapshot<Aspired>& state_snapshot :
          basic_manager_->GetManagedServableStateSnapshots<Aspired>(
@@ -381,20 +385,22 @@ void AspiredVersionsManager::PerformAction(
     const AspiredVersionPolicy::ServableAction action) {
   switch (action.action) {
     case AspiredVersionPolicy::Action::kLoad: {
-      basic_manager_->LoadServable(action.id, [action](const Status& status) {
+      auto done_callback = [action](const Status& status) {
         if (!status.ok()) {
           LOG(ERROR) << "Servable " << action.id.DebugString()
                      << " cannot be loaded: " << status;
         }
-      });
+      };
+      basic_manager_->LoadServable(action.id, done_callback);
     } break;
     case AspiredVersionPolicy::Action::kUnload: {
-      basic_manager_->UnloadServable(action.id, [action](const Status& status) {
+      auto done_callback = [action](const Status& status) {
         if (!status.ok()) {
           LOG(ERROR) << "Servable " << action.id.DebugString()
                      << " cannot be unloaded: " << status;
         }
-      });
+      };
+      basic_manager_->UnloadServable(action.id, done_callback);
     } break;
   }
 }
@@ -457,6 +463,7 @@ void AspiredVersionsManager::HandlePendingAspiredVersionsRequests() {
 void AspiredVersionsManager::InvokePolicyAndExecuteAction() {
   mutex_lock l(basic_manager_read_modify_write_mu_);
 
+  // 根据version policy，获取到下一个要执行的action
   const absl::optional<AspiredVersionPolicy::ServableAction> next_action =
       GetNextAction();
   if (!next_action) {

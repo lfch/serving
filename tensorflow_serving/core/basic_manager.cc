@@ -162,6 +162,7 @@ BasicManager::ServingMap::GetAvailableUntypedServableHandles() const {
   return result;
 }
 
+// 这里的策略继续看
 void BasicManager::ServingMap::Update(const ManagedMap& managed_map) {
   struct CompareRequests {
     bool operator()(const ServableRequest& lhs,
@@ -333,6 +334,7 @@ BasicManager::ManagedMap::iterator BasicManager::FindHarnessInMap(
   return managed_map_.end();
 }
 
+// 谁调用的这个?? 向managed_map_中插入元素的只有这个函数
 Status BasicManager::ManageServableInternal(
     ServableData<std::unique_ptr<Loader>> servable,
     std::function<std::shared_ptr<LoaderHarness>(const ServableId&,
@@ -644,6 +646,7 @@ void BasicManager::HandleLoadOrUnloadRequest(const LoadOrUnloadRequest& request,
     // We serialize the decision phases of the requests. We will make a decision
     // about the present request before allowing other requests to enter their
     // decision phase. See the .h file for more explanation and rationale.
+    // 比如Load阶段是否可以获取到足够的resource
     mutex_lock l(load_unload_decision_phase_mu_);
     decision_status = ApproveLoadOrUnload(request, &harness);
   }

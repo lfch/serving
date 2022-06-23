@@ -28,6 +28,7 @@ namespace serving {
 //
 // This can be useful for filesystems which wrap other filesystems via namespace
 // prefixes, adding additional functionality like buffering for example.
+// 具体是什么文件系统呢？ 
 class PrefixStoragePathSourceAdapter final
     : public UnarySourceAdapter<StoragePath, StoragePath> {
  public:

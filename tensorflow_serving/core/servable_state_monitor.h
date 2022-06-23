@@ -33,7 +33,7 @@ limitations under the License.
 namespace tensorflow {
 namespace serving {
 
-/// A utility that listens to an EventBus&amp;lt;ServableState>, and keeps track
+/// A utility that listens to an EventBus<ServableState>, and keeps track
 /// of the state of each servable mentioned on the bus. The intended use case is
 /// to track the states of servables in a Manager.
 ///

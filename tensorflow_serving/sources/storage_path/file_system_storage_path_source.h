@@ -112,6 +112,7 @@ class FileSystemStoragePathSource : public Source<StoragePath> {
 
   mutable mutex mu_;
 
+  // config_中包含着所有的model信息
   FileSystemStoragePathSourceConfig config_ TF_GUARDED_BY(mu_);
 
   AspiredVersionsCallback aspired_versions_callback_ TF_GUARDED_BY(mu_);

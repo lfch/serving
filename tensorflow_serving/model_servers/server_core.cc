@@ -223,12 +223,13 @@ Status UpdateModelConfigListRelativePaths(
 Status ServerCore::Create(Options options,
                           std::unique_ptr<ServerCore>* server_core) {
   if (options.servable_state_monitor_creator == nullptr) {
-    options.servable_state_monitor_creator =
-        [](EventBus<ServableState>* event_bus,
-           std::unique_ptr<ServableStateMonitor>* monitor) {
-          monitor->reset(new ServableStateMonitor(event_bus));
-          return Status::OK();
-        };
+    auto servable_state_monitor_creator = [](
+        EventBus<ServableState>* event_bus,
+        std::unique_ptr<ServableStateMonitor>* monitor) {
+      monitor->reset(new ServableStateMonitor(event_bus));
+      return Status::OK();
+    };
+    options.servable_state_monitor_creator = servable_state_monitor_creator     
   }
 
   if (options.server_request_logger == nullptr) {
@@ -328,7 +329,7 @@ Status ServerCore::AddModelsViaModelConfigList() {
       CreateStoragePathSourceConfig(config_);
   DynamicSourceRouter<StoragePath>::Routes routes;
   TF_RETURN_IF_ERROR(CreateStoragePathRoutes(config_, &routes));
-  if (is_first_config) {
+  if (is_first_config) {  // 第一次加载模型
     // Construct the following source topology:
     //   Source -> Router -> Adapter_0 (for models using platform 0)
     //                    -> Adapter_1 (for models using platform 1)
@@ -340,6 +341,7 @@ Status ServerCore::AddModelsViaModelConfigList() {
     TF_RETURN_IF_ERROR(CreateRouter(routes, &adapters, &router));
     std::unique_ptr<FileSystemStoragePathSource> source;
     std::unique_ptr<PrefixStoragePathSourceAdapter> prefix_source_adapter;
+    // 只有第一次load之前需要创建FileSystemStoragePathSource对象
     TF_RETURN_IF_ERROR(CreateStoragePathSource(
         source_config, router.get(), &source, &prefix_source_adapter));
 
@@ -665,6 +667,7 @@ Status ServerCore::CreateRouter(
     }
     const int port_num = it->second;
 
+    // 将adapter的AspiredVersionsCallback函数赋值给StoragePathSource
     ConnectSourceToTarget(output_ports[port_num], adapter);
   }
   ConnectSourceToTarget(output_ports[output_ports.size() - 1],

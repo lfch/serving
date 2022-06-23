@@ -40,7 +40,7 @@ namespace serving {
 /// OutputType.
 ///
 /// A common example uses InputType=StoragePath,
-/// OutputType=unique_ptr&amp;lt;Loader>, in which case the module "converts"
+/// OutputType=unique_ptr<Loader>, in which case the module "converts"
 /// each incoming storage path into a loader capable of loading a (particular
 /// type of) servable based on the path.
 ///
@@ -201,6 +201,7 @@ ServableData<OutputType> SourceAdapter<InputType, OutputType>::AdaptOneVersion(
 template <typename InputType, typename OutputType>
 UnarySourceAdapter<InputType, OutputType>::~UnarySourceAdapter() {}
 
+// Adapt函数中会针对每个version调用Convert函数
 template <typename InputType, typename OutputType>
 std::vector<ServableData<OutputType>>
 UnarySourceAdapter<InputType, OutputType>::Adapt(

@@ -113,16 +113,16 @@ template <typename T>
 TargetBase<T>::TargetBase() : mu_(new mutex), detached_(new Notification) {
   std::shared_ptr<mutex> mu = mu_;
   std::shared_ptr<Notification> detached = detached_;
-  observer_.reset(new Observer<const StringPiece, std::vector<ServableData<T>>>(
-      [mu, detached, this](const StringPiece servable_name,
-                           std::vector<ServableData<T>> versions) {
-        mutex_lock l(*mu);
-        if (detached->HasBeenNotified()) {
-          // We're detached. Perform a no-op.
-          return;
-        }
-        this->SetAspiredVersions(servable_name, std::move(versions));
-      }));
+  auto observer_fn = [mu, detached, this](const StringPiece servable_name,
+      std::vector<ServableData<T>> versions) {
+    mutex_lock l(*mu);
+    if (detached->HasBeenNotified()) {
+      // We're detached. Perform a no-op.
+      return;
+    }
+    this->SetAspiredVersions(servable_name, std::move(versions));
+  }
+  observer_.reset(new Observer<const StringPiece, std::vector<ServableData<T>>>(observer_fn));
 }
 
 template <typename T>
@@ -163,6 +163,8 @@ void TargetBase<T>::Detach() {
   }
 }
 
+// GetAspiredVersionsCallback其实是返回Observer对象的notify函数，其实就是将Aspired versions
+// 入队到pending requests中。
 template <typename T>
 void ConnectSourceToTarget(Source<T>* source, Target<T>* target) {
   source->SetAspiredVersionsCallback(target->GetAspiredVersionsCallback());

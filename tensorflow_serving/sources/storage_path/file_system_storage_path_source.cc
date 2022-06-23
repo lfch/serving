@@ -375,6 +375,7 @@ void FileSystemStoragePathSource::SetAspiredVersionsCallback(
   }
 }
 
+// 周期性地被一个线程单独调用
 Status FileSystemStoragePathSource::PollFileSystemAndInvokeCallback() {
   mutex_lock l(mu_);
   std::map<string, std::vector<ServableData<StoragePath>>>
@@ -397,6 +398,7 @@ Status FileSystemStoragePathSource::PollFileSystemAndInvokeCallback() {
                 << config_.file_system_poll_wait_seconds();
       }
     }
+    // 调用回调函数，实际上就是将一个servable的所有版本放入到AspiredVersionManager的pending_requests中
     CallAspiredVersionsCallback(servable, versions);
   }
   return Status::OK();

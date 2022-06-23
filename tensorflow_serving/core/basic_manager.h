@@ -522,14 +522,13 @@ template <typename T>
 Status BasicManager::ManageServableWithAdditionalState(
     ServableData<std::unique_ptr<Loader>> servable,
     std::unique_ptr<T> additional_state) {
-  return ManageServableInternal(
-      std::move(servable),
-      [this, &additional_state](const ServableId& id,
-                                std::unique_ptr<Loader> loader) {
-        return std::make_shared<LoaderHarness>(id, std::move(loader),
-                                               std::move(additional_state),
-                                               harness_options_);
-      });
+  auto harness_creator = [this, &additional_state](
+      const ServableId& id,
+      std::unique_ptr<Loader> loader) {
+    return std::make_shared<LoaderHarness>(id, std::move(loader),
+      std::move(additional_state), harness_options_);
+  };
+  return ManageServableInternal(std::move(servable), harness_creator);
 }
 
 template <typename T>

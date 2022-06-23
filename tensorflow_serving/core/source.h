@@ -84,6 +84,8 @@ class Source {
   /// V depends on the semantics of the Target of the callback. Certain Targets
   /// will interpret V's omission as an implicit instruction to unload V. Each
   /// Target must document its semantics in this regard.
+  // Target中，其实就是AspiredVersionManager中会有AspiredVersionsCallback函数的
+  // 实现，会通过SetAspiredVersionsCallback函数赋值给Source. 
   using AspiredVersionsCallback = std::function<void(
       const StringPiece servable_name, std::vector<ServableData<T>> versions)>;
 

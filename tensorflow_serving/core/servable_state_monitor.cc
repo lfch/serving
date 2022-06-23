@@ -236,17 +236,16 @@ bool ServableStateMonitor::WaitUntilServablesReachState(
     std::map<ServableId, ServableState::ManagerState>* const states_reached) {
   bool reached_goal_state;
   Notification notified;
-  NotifyWhenServablesReachState(
-      servables, goal_state,
-      [&](const bool incoming_reached_goal_state,
-          const std::map<ServableId, ServableState::ManagerState>&
-              incoming_states_reached) {
-        if (states_reached != nullptr) {
-          *states_reached = incoming_states_reached;
-        }
-        reached_goal_state = incoming_reached_goal_state;
-        notified.Notify();
-      });
+  auto notifier_fn = [&](const bool incoming_reached_goal_state,
+      const std::map<ServableId, ServableState::ManagerState>&
+    incoming_states_reached) {
+    if (states_reached != nullptr) {
+      *states_reached = incoming_states_reached;
+    }
+    reached_goal_state = incoming_reached_goal_state;
+    notified.Notify();
+  };
+  NotifyWhenServablesReachState(servables, goal_state, notifier_fn);
   notified.WaitForNotification();
   return reached_goal_state;
 }

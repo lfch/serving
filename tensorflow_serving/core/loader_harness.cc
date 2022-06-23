@@ -77,7 +77,7 @@ Status LoaderHarness::Load() {
   const Status status = Retry(
       strings::StrCat("Loading servable: ", id_.DebugString()),
       options_.max_num_load_retries, options_.load_retry_interval_micros,
-      [&]() { return loader_->LoadWithMetadata({id_}); },
+      [&]() { return loader_->LoadWithMetadata({id_}); }, // 这里执行load
       [&]() { return cancel_load_retry(); });
 
   if (status.ok()) {

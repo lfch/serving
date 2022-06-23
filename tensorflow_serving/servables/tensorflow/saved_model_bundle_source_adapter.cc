@@ -52,7 +52,7 @@ SavedModelBundleSourceAdapter::GetServableCreator(
     std::shared_ptr<SavedModelBundleFactory> bundle_factory,
     const StoragePath& path) const {
   if (bundle_factory->config().enable_session_metadata()) {
-    return [bundle_factory, path](const Loader::Metadata& metadata,
+    auto servable_creator = [bundle_factory, path](const Loader::Metadata& metadata,
                                   std::unique_ptr<SavedModelBundle>* bundle) {
       TF_RETURN_IF_ERROR(bundle_factory->CreateSavedModelBundleWithMetadata(
           metadata, path, bundle));
@@ -65,8 +65,9 @@ SavedModelBundleSourceAdapter::GetServableCreator(
       }
       return Status::OK();
     };
+    return servable_creator;
   }
-  return [bundle_factory, path](std::unique_ptr<SavedModelBundle>* bundle) {
+  auto servable_creator = [bundle_factory, path](std::unique_ptr<SavedModelBundle>* bundle) {
     TF_RETURN_IF_ERROR(bundle_factory->CreateSavedModelBundle(path, bundle));
     if (bundle_factory->config().enable_model_warmup()) {
       return RunSavedModelWarmup(
@@ -75,6 +76,7 @@ SavedModelBundleSourceAdapter::GetServableCreator(
     }
     return Status::OK();
   };
+  return servable_creator;
 }
 
 Status SavedModelBundleSourceAdapter::Convert(const StoragePath& path,
