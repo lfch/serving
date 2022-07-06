@@ -252,9 +252,9 @@ void AspiredVersionsManager::EnqueueAspiredVersionsRequest(
   }
 }
 
-// 从请求参数versions中获取到next aspired version set, 从Manager中获取到
-// current aspired version set，然后取两者差集，然后调用ManageServableWithAdditionalState函数
-// 开始追踪其生命周期
+// 从请求参数versions中获取到next aspired version set,
+// 从Manager中获取到current aspired version set，然后取两者差集
+// 然后调用ManageServableWithAdditionalState函数开始追踪其生命周期
 void AspiredVersionsManager::ProcessAspiredVersionsRequest(
     const StringPiece servable_name,
     std::vector<ServableData<std::unique_ptr<Loader>>> versions) {
@@ -280,6 +280,7 @@ void AspiredVersionsManager::ProcessAspiredVersionsRequest(
       }
     }
     // If this version is not part of the aspired versions.
+    // 如果servable version 1已经被load进了内存中。但是刚到的请求中没有version 1， 则会立即unload掉。
     if (next_aspired_versions.find(state_snapshot.id.version) ==
         next_aspired_versions.end()) {
       VLOG(1) << "Setting is_aspired=false for " << state_snapshot.id;
@@ -312,6 +313,7 @@ void AspiredVersionsManager::ProcessAspiredVersionsRequest(
       ServableId id;
       id.name = std::string(servable_name);
       id.version = version_id.version;
+      // StopManagingServable就是将该servable从ManagedMap中删除
       const Status manage_status = basic_manager_->StopManagingServable(id);
       DCHECK(manage_status.ok()) << manage_status.error_message();
       if (!manage_status.ok()) {
@@ -325,6 +327,7 @@ void AspiredVersionsManager::ProcessAspiredVersionsRequest(
     // if this aspired version is not already present in the map.
     if (should_add) {
       // 从这里开始管理该version的生命周期
+      // 继续从这里往下看
       const Status manage_status =
           basic_manager_->ManageServableWithAdditionalState(
               std::move(version), std::unique_ptr<Aspired>(new Aspired{true}));
@@ -450,6 +453,7 @@ void AspiredVersionsManager::HandlePendingAspiredVersionsRequests() {
     const string& servable_name = it->first;
     std::vector<ServableData<std::unique_ptr<Loader>>>& versions = it->second;
 
+    // 针对已经加载到内存中但不是Aspired的servable，将请求继续留在队列中。
     if (ContainsAnyReaspiredVersions(servable_name, versions)) {
       // Sit on it for now. We'll check again later.
       ++it;
