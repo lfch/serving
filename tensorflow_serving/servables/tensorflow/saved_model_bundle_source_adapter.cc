@@ -79,6 +79,8 @@ SavedModelBundleSourceAdapter::GetServableCreator(
   return servable_creator;
 }
 
+// 将StoragePath转成Loader，首先准备好servable_creator, resource_estimator和
+// post_load_resource_estimator， 然后调用SimpleLoader的构造函数就可以了。
 Status SavedModelBundleSourceAdapter::Convert(const StoragePath& path,
                                               std::unique_ptr<Loader>* loader) {
   std::shared_ptr<SavedModelBundleFactory> bundle_factory = bundle_factory_;

@@ -254,7 +254,7 @@ void AspiredVersionsManager::EnqueueAspiredVersionsRequest(
 
 // 从请求参数versions中获取到next aspired version set, 从Manager中获取到
 // current aspired version set，然后取两者差集，然后调用ManageServableWithAdditionalState函数
-// 开启加载的过程
+// 开始追踪其生命周期
 void AspiredVersionsManager::ProcessAspiredVersionsRequest(
     const StringPiece servable_name,
     std::vector<ServableData<std::unique_ptr<Loader>>> versions) {
@@ -324,6 +324,7 @@ void AspiredVersionsManager::ProcessAspiredVersionsRequest(
 
     // if this aspired version is not already present in the map.
     if (should_add) {
+      // 从这里开始管理该version的生命周期
       const Status manage_status =
           basic_manager_->ManageServableWithAdditionalState(
               std::move(version), std::unique_ptr<Aspired>(new Aspired{true}));
@@ -368,10 +369,12 @@ AspiredVersionsManager::GetNextAction() {
           {state_snapshot.id, state_snapshot.state,
            state_snapshot.additional_state->is_aspired});
     }
+    // 对当前servable，根据policy找到下一个想要的version和要执行的action.
     actions.emplace_back(
         aspired_version_policy_->GetNextAction(aspired_state_snapshots));
   }
 
+  // 优先unload操作
   std::sort(actions.begin(), actions.end(), CompareActions());
   const absl::optional<AspiredVersionPolicy::ServableAction> next_action =
       !actions.empty() ? actions[0] : absl::nullopt;
@@ -471,6 +474,7 @@ void AspiredVersionsManager::InvokePolicyAndExecuteAction() {
   }
   // NOTE: we could do action validation here.
 
+  // 执行action, 在首次load servable时，输入参数为 {servable_id, kLoad}
   PerformAction(*next_action);
 }
 

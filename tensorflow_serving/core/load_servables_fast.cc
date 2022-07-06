@@ -51,7 +51,10 @@ Status ConnectSourcesWithFastInitialLoad(
       SetManagerNumLoadThreadsNotifier(manager);
   set_manager_num_load_threads(num_threads);
   for (Source<std::unique_ptr<Loader>>* source : sources) {
-    ConnectSourceToTarget(source, manager);  // 这里trigger的servable的load??
+    // 将AspiredVersionManager的AspiredVersionCallback函数赋值给SourceAdapter。
+    // 会调用AspiredVersionsManagerTargetImpl::SetAspiredVersionCallback 
+    // 继续顺着这里看AspiredVersionsManager中的逻辑
+    ConnectSourceToTarget(source, manager);
   }
   const Status status = wait_until_loaded_fn();
   set_manager_num_load_threads(prev_num_load_threads);
@@ -76,7 +79,7 @@ Status ConnectSourcesWithFastInitialLoad(
     ServableStateMonitor* servable_state_monitor,
     const std::vector<ServableRequest>& initial_servables,
     const uint32 num_threads) {
-  auto wait_until_loaded_fn = [&]() { // 这个lambda用来判断是否所有的servables都加载完成了。
+  auto wait_until_loaded_fn = [&]() { // 这个lambda等待并且判断所有的servables是否都加载完成了。
     std::map<ServableId, ServableState::ManagerState> states_reached;
     const bool all_servables_available =
         servable_state_monitor->WaitUntilServablesReachState(

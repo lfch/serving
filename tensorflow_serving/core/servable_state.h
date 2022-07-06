@@ -78,7 +78,7 @@ struct ServableState {
     }
   }
 
-  ManagerState manager_state;
+  ManagerState ;
 
   // Whether anything has gone wrong with this servable. If not OK, the error
   // could be something that occurred in a Source or SourceAdapter, in the

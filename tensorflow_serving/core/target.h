@@ -164,7 +164,7 @@ void TargetBase<T>::Detach() {
 }
 
 // GetAspiredVersionsCallback其实是返回Observer对象的notify函数，其实就是将Aspired versions
-// 入队到pending requests中。
+//
 template <typename T>
 void ConnectSourceToTarget(Source<T>* source, Target<T>* target) {
   source->SetAspiredVersionsCallback(target->GetAspiredVersionsCallback());

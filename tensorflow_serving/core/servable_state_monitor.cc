@@ -68,6 +68,7 @@ absl::optional<ServableState::ManagerState> HasSpecificServableReachedState(
   const ServableState::ManagerState state =
       opt_servable_state_time->state.manager_state;
   if (state != goal_state && state != ServableState::ManagerState::kEnd) {
+    // 处于中间状态，比如Loading阶段
     return {};
   }
   return {state};
@@ -109,6 +110,7 @@ ServableStateMonitor::ServableStateMonitor(EventBus<ServableState>* bus,
   // Important: We must allow the state members ('states_', 'live_states_' and
   // so on) to be initialized *before* we start the bus subscription, in case an
   // event comes in while we are initializing.
+  // 向EventBus上注册一个subscriber,
   bus_subscription_ = bus->Subscribe(
       [this](const EventBus<ServableState>::EventAndTime& state_and_time) {
         this->HandleEvent(state_and_time);
@@ -237,8 +239,7 @@ bool ServableStateMonitor::WaitUntilServablesReachState(
   bool reached_goal_state;
   Notification notified;
   auto notifier_fn = [&](const bool incoming_reached_goal_state,
-      const std::map<ServableId, ServableState::ManagerState>&
-    incoming_states_reached) {
+      const std::map<ServableId, ServableState::ManagerState>& incoming_states_reached) {
     if (states_reached != nullptr) {
       *states_reached = incoming_states_reached;
     }
@@ -246,6 +247,7 @@ bool ServableStateMonitor::WaitUntilServablesReachState(
     notified.Notify();
   };
   NotifyWhenServablesReachState(servables, goal_state, notifier_fn);
+  // 在servables到达goal_state之前，一直等待在这里
   notified.WaitForNotification();
   return reached_goal_state;
 }
@@ -257,6 +259,7 @@ void ServableStateMonitor::HandleEvent(
     const EventBus<ServableState>::EventAndTime& event_and_time) {
   PreHandleEvent(event_and_time);
 
+  // 返回一个RAII， 在函数返回时执行SendNotifications
   auto cleanup =
       gtl::MakeCleanup([&]() { SendNotifications(event_and_time.event); });
 
@@ -287,11 +290,13 @@ ServableStateMonitor::ShouldSendStateReachedNotification(
     if (servable_request.version) {
       const ServableId servable_id = {servable_request.name,
                                       *servable_request.version};
+      // opt_state不为空，说明opt_state==goal_state或者opt_state=kEnd
       const absl::optional<ServableState::ManagerState> opt_state =
           HasSpecificServableReachedState(servable_id,
                                           notification_request.goal_state,
                                           GetStateAndTimeInternal(servable_id));
       if (!opt_state) {
+        // 如果opt_state为空，说明还有servable没有到达goal_state，直接返回。
         return {};
       }
       // Remains false once false.
@@ -313,6 +318,8 @@ ServableStateMonitor::ShouldSendStateReachedNotification(
       states_reached[*opt_servable_id] = reached_state;
     }
   }
+  // reached_goal_state表示是否notification_request中的所有servable都达到了goal_state
+  // states_reached存储每个servable_id的状态
   return {{reached_goal_state, states_reached}};
 }
 
@@ -325,6 +332,8 @@ void ServableStateMonitor::MaybeSendStateReachedNotifications() {
         opt_state_and_states_reached =
             ShouldSendStateReachedNotification(notification_request);
     if (opt_state_and_states_reached) {
+      // 如果notification_request中所有servable都到达了goal state，
+      // 就执行notifier_fn函数，并且将其从servable_state_notification_requests_中删除掉。
       notification_request.notifier_fn(opt_state_and_states_reached->first,
                                        opt_state_and_states_reached->second);
       iter = servable_state_notification_requests_.erase(iter);

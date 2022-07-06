@@ -356,11 +356,14 @@ Status BasicManager::ManageServableInternal(
     loader = servable.ConsumeDataOrDie();
   }
 
+  // 这里创建LoaderHarness对象，用于包装Loader对象，初始状态为kNew
   std::shared_ptr<LoaderHarness> harness =
       harness_creator(servable.id(), std::move(loader));
   if (!servable.status().ok()) {
     harness->Error(servable.status());
   } else {
+    // 向EventBus上发布一个kStart事件，表示开始管理该servable的生命周期
+    // kStart事件是如何被处理的？？
     PublishOnEventBus({harness->id(), ServableState::ManagerState::kStart,
                        harness->status()});
   }
@@ -690,6 +693,7 @@ Status BasicManager::ApproveLoad(LoaderHarness* harness, mutex_lock* mu_lock) {
     if (!resource_reservation_status.ok()) {
       LOG(WARNING) << resource_reservation_status;
       harness->Error(resource_reservation_status);
+      // 如果资源分配失败，会向EventBus上发布一个kEnd事件, 这个kEnd事件是如何被处理的？？
       PublishOnEventBus({harness->id(), ServableState::ManagerState::kEnd,
                          resource_reservation_status});
       return resource_reservation_status;

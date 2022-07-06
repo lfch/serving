@@ -180,6 +180,7 @@ void SourceAdapter<InputType, OutputType>::SetAspiredVersions(
   outgoing_callback_(servable_name, Adapt(servable_name, std::move(versions)));
 }
 
+// 会被Source或者SourceRouter调用
 template <typename InputType, typename OutputType>
 void SourceAdapter<InputType, OutputType>::SetAspiredVersionsCallback(
     typename Source<OutputType>::AspiredVersionsCallback callback) {
@@ -202,6 +203,7 @@ template <typename InputType, typename OutputType>
 UnarySourceAdapter<InputType, OutputType>::~UnarySourceAdapter() {}
 
 // Adapt函数中会针对每个version调用Convert函数
+// 针对SavedModelBundle， Convert函数返回SavedModelLoader对象
 template <typename InputType, typename OutputType>
 std::vector<ServableData<OutputType>>
 UnarySourceAdapter<InputType, OutputType>::Adapt(

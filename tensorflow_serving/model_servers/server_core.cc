@@ -273,6 +273,7 @@ Status ServerCore::Initialize(std::unique_ptr<AspiredVersionPolicy> policy) {
     return status;
   }
 
+  // 这里创建了服务里面全局唯一的EventBus对象
   servable_state_monitor_ = std::move(servable_state_monitor);
 
   std::unique_ptr<AspiredVersionsManager> aspired_versions_manager;
@@ -291,6 +292,8 @@ Status ServerCore::WaitUntilModelsAvailable(const std::set<string>& models,
     awaited_servables.push_back(ServableRequest::Latest(model));
   }
   std::map<ServableId, ServableState::ManagerState> states_reached;
+  // 等待所有的servables到达kAvailable状态，如果只有部分model可用，
+  // 会打印下面的错误信息
   const bool all_models_available = monitor->WaitUntilServablesReachState(
       awaited_servables, ServableState::ManagerState::kAvailable,
       &states_reached);
@@ -328,6 +331,7 @@ Status ServerCore::AddModelsViaModelConfigList() {
   const FileSystemStoragePathSourceConfig source_config =
       CreateStoragePathSourceConfig(config_);
   DynamicSourceRouter<StoragePath>::Routes routes;
+  // route是platform -> port
   TF_RETURN_IF_ERROR(CreateStoragePathRoutes(config_, &routes));
   if (is_first_config) {  // 第一次加载模型
     // Construct the following source topology:
@@ -341,7 +345,7 @@ Status ServerCore::AddModelsViaModelConfigList() {
     TF_RETURN_IF_ERROR(CreateRouter(routes, &adapters, &router));
     std::unique_ptr<FileSystemStoragePathSource> source;
     std::unique_ptr<PrefixStoragePathSourceAdapter> prefix_source_adapter;
-    // 只有第一次load之前需要创建FileSystemStoragePathSource对象
+    // 只有第一次load之前需要创建一个全局唯一的FileSystemStoragePathSource对象
     TF_RETURN_IF_ERROR(CreateStoragePathSource(
         source_config, router.get(), &source, &prefix_source_adapter));
 
@@ -363,6 +367,7 @@ Status ServerCore::AddModelsViaModelConfigList() {
   } else {
     // Create a fresh servable state monitor, to avoid getting confused if we're
     // re-loading a model-version that has previously been unloaded.
+    // 根据servable_event_bus_创建一个新的ServableStateMonitor对象
     ServableStateMonitor fresh_servable_state_monitor(
         servable_event_bus_.get());
 
@@ -633,6 +638,7 @@ Status ServerCore::CreateStoragePathSource(
     return status;
   }
   if (options_.storage_path_prefix.empty()) {
+    // 将target的AspiredVersionCallback赋值给FileSystemStoragePathSource对象
     ConnectSourceToTarget(source->get(), target);
   } else {
     *prefix_source_adapter = absl::make_unique<PrefixStoragePathSourceAdapter>(
@@ -668,6 +674,8 @@ Status ServerCore::CreateRouter(
     const int port_num = it->second;
 
     // 将adapter的AspiredVersionsCallback函数赋值给StoragePathSource
+    // 这里的adapter其实扮演target的概念
+    // 一个adapter对应着一个port_num
     ConnectSourceToTarget(output_ports[port_num], adapter);
   }
   ConnectSourceToTarget(output_ports[output_ports.size() - 1],
@@ -680,6 +688,7 @@ Status ServerCore::CreateAdapters(SourceAdapters* adapters) const {
   for (const auto& entry : platform_to_router_port_) {
     const string& platform = entry.first;
     std::unique_ptr<StoragePathSourceAdapter> adapter;
+    // 每个platform一个adapter对象
     TF_RETURN_IF_ERROR(CreateAdapter(platform, &adapter));
     adapters->platform_adapters[platform] = std::move(adapter);
   }

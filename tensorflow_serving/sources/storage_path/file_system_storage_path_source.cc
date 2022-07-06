@@ -335,6 +335,8 @@ Status FileSystemStoragePathSource::UpdateConfig(
   return Status::OK();
 }
 
+// 如果设置了file_system_poll_wait_seconds > 0，则会启动一个进程周期性地
+// 根据config_去扫描模型目录，看是否有新的模型需要加载。
 void FileSystemStoragePathSource::SetAspiredVersionsCallback(
     AspiredVersionsCallback callback) {
   mutex_lock l(mu_);
@@ -399,6 +401,7 @@ Status FileSystemStoragePathSource::PollFileSystemAndInvokeCallback() {
       }
     }
     // 调用回调函数，实际上就是将一个servable的所有版本放入到AspiredVersionManager的pending_requests中
+    // 该调用会经由DynamicSourceRouter，最终调用SavedModelBundleSourceAdapter的方法
     CallAspiredVersionsCallback(servable, versions);
   }
   return Status::OK();

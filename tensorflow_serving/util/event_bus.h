@@ -114,7 +114,7 @@ class EventBus : public std::enable_shared_from_this<EventBus<E>> {
   ///   publisher's thread. Any costly work should be performed asynchronously.
   using Callback = std::function<void(const EventAndTime&)>;
 
-  /// Subscribes to all events on the EventBus.
+  /// Subscribes to all events on the EventBus
   ///
   /// Returns a Subscription RAII object that can be used to unsubscribe, or
   /// will automatically unsubscribe on destruction. Returns a unique_ptr so
