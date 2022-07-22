@@ -6,6 +6,8 @@ option cc_enable_arenas = true;
 import "tensorflow/core/framework/tensor.proto";
 import "tensorflow_serving/apis/model.proto";
 
+// 支持单条样本的Predict
+// 多条样本的predict如何实现的??
 // PredictRequest specifies which TensorFlow model to run, as well as
 // how inputs are mapped to tensors and how outputs are filtered before
 // returning to user.

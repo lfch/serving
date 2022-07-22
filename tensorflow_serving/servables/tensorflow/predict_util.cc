@@ -100,6 +100,7 @@ Status RunPredict(
   std::vector<Tensor> outputs;
   RunMetadata run_metadata;
   const uint64_t start_microseconds = EnvTime::NowMicros();
+  // 如果开启了enable batch，则调用BatchingSession::Run()函数
   TF_RETURN_IF_ERROR(session->Run(run_options, input_tensors,
                                   output_tensor_names, {}, &outputs,
                                   &run_metadata, thread_pool_options));

@@ -193,6 +193,7 @@ AspiredVersionsManager::AspiredVersionsManager(
     manage_state_thread_.reset(new PeriodicFunction(
         [this]() {
           this->FlushServables();
+          // 一次调用处理完成整个队列中的所有请求
           this->HandlePendingAspiredVersionsRequests();
           this->InvokePolicyAndExecuteAction();
         },
@@ -327,7 +328,6 @@ void AspiredVersionsManager::ProcessAspiredVersionsRequest(
     // if this aspired version is not already present in the map.
     if (should_add) {
       // 从这里开始管理该version的生命周期
-      // 继续从这里往下看
       const Status manage_status =
           basic_manager_->ManageServableWithAdditionalState(
               std::move(version), std::unique_ptr<Aspired>(new Aspired{true}));
@@ -463,6 +463,8 @@ void AspiredVersionsManager::HandlePendingAspiredVersionsRequests() {
     } else {
       ProcessAspiredVersionsRequest(servable_name, std::move(versions));
       it = pending_aspired_versions_requests_.erase(it);
+      // 开始这个servable的生命周期管理之后，将请求从队列中删除。该servable已经
+      // 通过BasicManager::ManagedMap管理起来了。
     }
   }
 }

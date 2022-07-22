@@ -83,6 +83,7 @@ Status SavedModelBundleFactory::Create(
     const SessionBundleConfig& config,
     std::unique_ptr<SavedModelBundleFactory>* factory) {
   std::shared_ptr<Batcher> batcher;
+  // 创建SharedBatchScheduler对象
   if (config.has_batching_parameters()) {
     TF_RETURN_IF_ERROR(
         CreateBatchScheduler(config.batching_parameters(), &batcher));

@@ -232,6 +232,7 @@ void ServableStateMonitor::Notify(const NotifyFn& notify_fn) {
   notify_fns_.push_back(notify_fn);
 }
 
+// 在初次加载或者后面每次加载时，都会调用该函数，等待在这里
 bool ServableStateMonitor::WaitUntilServablesReachState(
     const std::vector<ServableRequest>& servables,
     const ServableState::ManagerState goal_state,
@@ -255,11 +256,14 @@ bool ServableStateMonitor::WaitUntilServablesReachState(
 void ServableStateMonitor::PreHandleEvent(
     const EventBus<ServableState>::EventAndTime& state_and_time) {}
 
+// 在执行HandleEvent之前，已经放入了NotificationRequest到队列中
+// 每次有Publisher向EventBus中publish一个event时，都会调用该函数
 void ServableStateMonitor::HandleEvent(
     const EventBus<ServableState>::EventAndTime& event_and_time) {
   PreHandleEvent(event_and_time);
 
   // 返回一个RAII， 在函数返回时执行SendNotifications
+  // 但是debug时，没有看到有注册notifer_fns_呢？？
   auto cleanup =
       gtl::MakeCleanup([&]() { SendNotifications(event_and_time.event); });
 
@@ -270,6 +274,7 @@ void ServableStateMonitor::HandleEvent(
       state_and_time;
   UpdateLiveStates(state_and_time, &live_states_);
   MaybeSendStateReachedNotifications();
+  // 如果没有servable到达goal_state状态，好像直接返回了。
 
   if (options_.max_count_log_events == 0) {
     return;
@@ -307,6 +312,7 @@ ServableStateMonitor::ShouldSendStateReachedNotification(
       const absl::optional<ServableId> opt_servable_id =
           HasAnyServableInStreamReachedState(
               servable_request.name, notification_request.goal_state, states_);
+      // 如果servable stream中没有任何一个servable到达goal_state状态，返回空
       if (!opt_servable_id) {
         return {};
       }
@@ -315,6 +321,7 @@ ServableStateMonitor::ShouldSendStateReachedNotification(
       // Remains false once false.
       reached_goal_state = reached_goal_state &&
                            reached_state == notification_request.goal_state;
+      // 如果到达了goal_state状态，则存储到states_reached集合中
       states_reached[*opt_servable_id] = reached_state;
     }
   }

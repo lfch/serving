@@ -334,7 +334,6 @@ BasicManager::ManagedMap::iterator BasicManager::FindHarnessInMap(
   return managed_map_.end();
 }
 
-// 谁调用的这个?? 向managed_map_中插入元素的只有这个函数
 Status BasicManager::ManageServableInternal(
     ServableData<std::unique_ptr<Loader>> servable,
     std::function<std::shared_ptr<LoaderHarness>(const ServableId&,
@@ -344,6 +343,7 @@ Status BasicManager::ManageServableInternal(
 
   mutex_lock l(mu_);
 
+  // 刚开始管理这个servable的生命周期，managed_map_中自然不存在
   const auto iter = BasicManager::FindHarnessInMap(servable.id());
   if (iter != managed_map_.end()) {
     return errors::FailedPrecondition(
@@ -367,6 +367,7 @@ Status BasicManager::ManageServableInternal(
     PublishOnEventBus({harness->id(), ServableState::ManagerState::kStart,
                        harness->status()});
   }
+  // 进入managed_map_的servable是处于被管理状态的
   managed_map_.emplace(servable.id().name, harness);
 
   return Status::OK();
@@ -650,6 +651,7 @@ void BasicManager::HandleLoadOrUnloadRequest(const LoadOrUnloadRequest& request,
     // about the present request before allowing other requests to enter their
     // decision phase. See the .h file for more explanation and rationale.
     // 比如Load阶段是否可以获取到足够的resource
+    // 
     mutex_lock l(load_unload_decision_phase_mu_);
     decision_status = ApproveLoadOrUnload(request, &harness);
   }

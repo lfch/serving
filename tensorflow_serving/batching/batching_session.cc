@@ -315,12 +315,12 @@ Status BatchingSession::Create(
         entry.scheduler_creator;
 
     std::unique_ptr<BatchScheduler<BatchingSessionTask>> batch_scheduler;
-    TF_RETURN_IF_ERROR(scheduler_creator(
-        [signature, raw_batching_session](
-            std::unique_ptr<Batch<BatchingSessionTask>> batch) {
-          raw_batching_session->ProcessBatch(signature, std::move(batch));
-        },
-        &batch_scheduler));
+    // 处理batch的会掉函数定义
+    auto batch_callback = [signature, raw_batching_session](
+        std::unique_ptr<Batch<BatchingSessionTask>> batch) {
+        raw_batching_session->ProcessBatch(signature, std::move(batch));
+    };
+    TF_RETURN_IF_ERROR(scheduler_creator(batch_callback, &batch_scheduler));
     batching_session->batch_schedulers_[signature] = std::move(batch_scheduler);
   }
 
@@ -377,6 +377,11 @@ Status BatchingSession::InternalRun(
         "BatchingSessionRun",
         {{"thread_pool_name", thread_pool_name_}, {"_r", 1} /*root_event*/});
   });
+
+  // 有三种情况:
+  // 1. 匹配signature
+  // 2. 不匹配signature，但是有default_scheduler_creator_
+  // 3. 兜底默认的Run
   const TensorSignature signature =
       TensorSignatureFromRunArgs(inputs, output_tensor_names);
   auto batch_scheduler_it = batch_schedulers_.find(signature);
@@ -386,11 +391,12 @@ Status BatchingSession::InternalRun(
       batch_scheduler_it = custom_signature_batch_schedulers_.find(signature);
       if (batch_scheduler_it == custom_signature_batch_schedulers_.end()) {
         std::unique_ptr<BatchScheduler<BatchingSessionTask>> batch_scheduler;
+        auto batch_process_callback = [&, signature](
+                std::unique_ptr<Batch<BatchingSessionTask>> batch) {
+            ProcessBatch(signature, std::move(batch));
+        };
         TF_RETURN_IF_ERROR(default_scheduler_creator_.value()(
-            [&, signature](std::unique_ptr<Batch<BatchingSessionTask>> batch) {
-              ProcessBatch(signature, std::move(batch));
-            },
-            &batch_scheduler));
+            batch_process_callback, &batch_scheduler));
         custom_signature_batch_schedulers_[signature] =
             std::move(batch_scheduler);
         batch_scheduler_it = custom_signature_batch_schedulers_.find(signature);
@@ -422,6 +428,7 @@ Status BatchingSession::InternalRun(
 
   outputs->clear();
 
+  // 创建Task对象，调度出去，然后再这里等通知
   Notification done;
   Status status;
   auto task = std::unique_ptr<BatchingSessionTask>(new BatchingSessionTask);
@@ -439,6 +446,8 @@ Status BatchingSession::InternalRun(
   task->shared_outputs = std::make_shared<std::vector<std::vector<Tensor>>>();
   task->split_run_metadatas = absl::make_unique<std::vector<RunMetadata>>();
 
+  // 这里其实调用了QueueHandle::Schedule()函数，
+  // QueueHandle继承自BatchScheduler类，对外暴露出了内部的queue对象
   TF_RETURN_IF_ERROR(batch_scheduler->Schedule(&task));
   done.WaitForNotification();
   return status;

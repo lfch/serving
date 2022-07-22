@@ -172,6 +172,7 @@ Status GetClassificationSignatureDef(const ModelSpec& model_spec,
   return Status::OK();
 }
 
+// 对于分类，输入一个tensor，输出为<label, score>
 Status PreProcessClassification(const SignatureDef& signature,
                                 string* input_tensor_name,
                                 std::vector<string>* output_tensor_names) {

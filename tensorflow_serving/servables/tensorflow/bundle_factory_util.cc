@@ -86,16 +86,17 @@ Status WrapSessionForBatching(const BatchingParameters& batching_config,
     }
   }
 
-  auto queue_options = GetQueueOptions<
-      tensorflow::serving::BatchingSessionTask>(
-      batching_config,
-      [](std::unique_ptr<tensorflow::serving::BatchingSessionTask>* input_task,
-         int open_batch_remaining_slot, int max_batch_size,
-         std::vector<std::unique_ptr<tensorflow::serving::BatchingSessionTask>>*
-             output_tasks) -> tensorflow::Status {
-        return SplitInputTask(input_task, open_batch_remaining_slot,
-                              max_batch_size, output_tasks);
-      });
+  // 首先获取到queue options， 然后定义创建queue的lambda表达式create_queue。
+  // create_queue中有BatchScheduler::AddQueue函数
+  using BatchingSessionTask = tensorflow::serving::BatchingSessionTask;
+  auto split_input_task_func = [](std::unique_ptr<BatchingSessionTask>* input_task,
+      int open_batch_remaining_slot, int max_batch_size,
+      std::vector<std::unique_ptr<BatchingSessionTask>>*output_tasks) -> tensorflow::Status {
+    return SplitInputTask(input_task, open_batch_remaining_slot,
+      max_batch_size, output_tasks);
+  }
+  auto queue_options = GetQueueOptions<tensorflow::serving::BatchingSessionTask>(
+      batching_config, split_input_task_func);
 
   BatchingSessionOptions batching_session_options;
   for (int allowed_batch_size : batching_config.allowed_batch_sizes()) {
@@ -124,6 +125,9 @@ Status WrapSessionForBatching(const BatchingParameters& batching_config,
 
   // TODO(b/184973097): Remove enable_default_schedule_creator once TFLite is
   // fixed.
+  // 这里使用了一个技巧，调用完函数CreateBatchingSession之后，SavedModelBundle中
+  // 存储的是BatchingSession对象，而之前创建的Session对象成为了BatchingSession的
+  // 成员变量。
   if (enable_default_schedule_creator) {
     return CreateBatchingSession(batching_session_options,
                                  signatures_with_scheduler_creators,

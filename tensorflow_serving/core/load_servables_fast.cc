@@ -53,9 +53,11 @@ Status ConnectSourcesWithFastInitialLoad(
   for (Source<std::unique_ptr<Loader>>* source : sources) {
     // 将AspiredVersionManager的AspiredVersionCallback函数赋值给SourceAdapter。
     // 会调用AspiredVersionsManagerTargetImpl::SetAspiredVersionCallback 
-    // 继续顺着这里看AspiredVersionsManager中的逻辑
     ConnectSourceToTarget(source, manager);
   }
+  // 在这里等待，直到所有servable加载完成，否则会一直阻塞。
+  // AspiredVersionsManager中的轮询线程会处理队列中的aspired version request，
+  // 开始servable的生命周期管理流程，当到达kAvailable状态时，发出通知，这里结束等待。
   const Status status = wait_until_loaded_fn();
   set_manager_num_load_threads(prev_num_load_threads);
   return status;
